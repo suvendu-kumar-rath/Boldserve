@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     Box,
@@ -14,16 +14,7 @@ import {
     Paper,
     ButtonBase,
     TableCell,
-    Avatar,
-    TextField,
-    Alert,
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
-    Stepper,
-    Step,
-    StepLabel
+    Avatar
 } from '@mui/material';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import ShoppingBagIcon from '@mui/icons-material/ShoppingBag';
@@ -34,8 +25,7 @@ import ShoppingCartCheckoutIcon from '@mui/icons-material/ShoppingCartCheckout';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import styled from '@emotion/styled';
-import WhatsAppIcon from '@mui/icons-material/WhatsApp';
-import { useAuth } from '../Context/Context';
+import WhatsAppIcon from '@mui/icons-material/WhatsApp'; // Add this import
 
 // Wrap Card component with motion
 const MotionCard = motion(Card);
@@ -86,8 +76,12 @@ const AnimatedCheckoutButton = styled(motion.button)({
     }
 });
 
+// Add this import at the top with other imports
+import { useAuth } from '../Context/Context';
+
 const Cart = ({ onCartUpdate }) => {
-    const { isAuthenticated } = useAuth();
+    // Add this near other state declarations
+    const { isAuthenticated } = useAuth(); // Get authentication state
     const [cartData, setCartData] = useState({
         items: [],
         summary: {
@@ -102,6 +96,7 @@ const Cart = ({ onCartUpdate }) => {
     const [error, setError] = useState(null);
     const navigate = useNavigate();
 
+    // Add this new function
     const clearCartAfterDelay = () => {
         setTimeout(() => {
             setCartData({
@@ -118,13 +113,15 @@ const Cart = ({ onCartUpdate }) => {
             if (onCartUpdate) {
                 onCartUpdate(0);
             }
-        }, 1000);
+        }, 1000); // Clears cart after 1 second
     };
 
+    // Update the createWhatsAppMessage function to format the message better
+    // First, update the createWhatsAppMessage function
     const createWhatsAppMessage = (cartItems, summary) => {
         const itemsList = cartItems.map(item =>
             `• ${item.name} x ${item.quantity} - ₹${(item.price * item.quantity).toFixed(2)}`
-        ).join('%0A');
+        ).join('%0A'); // Use %0A for line breaks
 
         const message =
             `*New Order Details*%0A%0A` +
@@ -135,15 +132,19 @@ const Cart = ({ onCartUpdate }) => {
             `Total Amount: ₹${(summary.subtotal + (summary.subtotal * 0.18)).toFixed(2)}%0A%0A` +
             `Please confirm my order. Thank you!`;
 
-        return message;
+        return message; // Don't use encodeURIComponent here
     };
 
-    const loadCartData = useCallback(() => {
+    useEffect(() => {
+        loadCartData();
+    }, []);
+
+    const loadCartData = () => {
         try {
             const savedCart = localStorage.getItem('cart');
             if (savedCart) {
                 const parsedCart = JSON.parse(savedCart);
-                if (Array.isArray(parsedCart)) {
+                if (Array.isArray(parsedCart)) {  // Ensure parsedCart is an array
                     const itemsWithDefaults = parsedCart.map(item => ({
                         ...item,
                         quantity: item.quantity || 1,
@@ -155,10 +156,12 @@ const Cart = ({ onCartUpdate }) => {
                     const cartWithSummary = calculateCartSummary(itemsWithDefaults);
                     setCartData(cartWithSummary);
 
+                    // Update initial cart count
                     if (onCartUpdate) {
                         onCartUpdate(itemsWithDefaults.length);
                     }
                 } else {
+                    // If saved cart is not an array, initialize empty cart
                     setCartData({
                         items: [],
                         summary: {
@@ -176,6 +179,7 @@ const Cart = ({ onCartUpdate }) => {
             }
         } catch (error) {
             console.error('Error loading cart:', error);
+            // On error, initialize empty cart
             setCartData({
                 items: [],
                 summary: {
@@ -192,19 +196,17 @@ const Cart = ({ onCartUpdate }) => {
         } finally {
             setLoading(false);
         }
-    }, [onCartUpdate]);
-
-    useEffect(() => {
-        loadCartData();
-    }, [loadCartData]);
+    };
 
     const handleDelete = (itemId) => {
         setCartData(prevCartData => {
             const remainingItems = prevCartData.items.filter(item => item._id !== itemId);
             const updatedCart = calculateCartSummary(remainingItems);
 
+            // Update localStorage
             localStorage.setItem('cart', JSON.stringify(remainingItems));
 
+            // Update cart count in navbar
             if (onCartUpdate) {
                 onCartUpdate(remainingItems.length);
             }
@@ -213,11 +215,34 @@ const Cart = ({ onCartUpdate }) => {
         });
     };
 
-    const updateItemQuantity = async (itemId, newQuantity) => {
-        try {
-            const updatedItems = cartData.items.map(item => 
-                item._id === itemId ? { ...item, quantity: newQuantity } : item
+    const updateItemQuantity = (itemId, change) => {
+        setCartData(prevCartData => {
+            const itemToUpdate = prevCartData.items.find(item => item._id === itemId);
+
+            if (!itemToUpdate) return prevCartData;
+
+            const newQuantity = (itemToUpdate.quantity || 1) + change;
+
+            // Don't allow quantity below 1
+            if (newQuantity < 1) {
+                return prevCartData;
+            }
+
+            // If trying to exceed max quantity, don't update
+            if (newQuantity > 6) {
+                return prevCartData;
+            }
+
+            const updatedItems = prevCartData.items.map(item =>
+                item._id === itemId
+                    ? {
+                        ...item,
+                        quantity: newQuantity,
+                        price: parseFloat(item.price) || 0
+                    }
+                    : item
             );
+
             const updatedCart = calculateCartSummary(updatedItems);
             localStorage.setItem('cart', JSON.stringify(updatedItems));
 
@@ -225,10 +250,8 @@ const Cart = ({ onCartUpdate }) => {
                 onCartUpdate(updatedItems.length);
             }
 
-            setCartData(updatedCart);
-        } catch (error) {
-            console.error('Error updating quantity:', error);
-        }
+            return updatedCart;
+        });
     };
 
     const calculateCartSummary = (items) => {
@@ -294,34 +317,39 @@ const Cart = ({ onCartUpdate }) => {
         }
     };
 
+    // Add this function to handle adding product to cart with image
     const addToCart = async (product) => {
         try {
-            const existingCartItems = JSON.parse(localStorage.getItem('cartItems') || '[]');
+            const existingCartItems = JSON.parse(localStorage.getItem('cartItems')) || [];
             const existingItem = existingCartItems.find(item => item._id === product._id);
-            let updatedItems;
 
             if (existingItem) {
-                updatedItems = existingCartItems.map(item =>
+                const updatedItems = existingCartItems.map(item =>
                     item._id === product._id
                         ? { ...item, quantity: item.quantity + 1 }
                         : item
                 );
+                localStorage.setItem('cartItems', JSON.stringify(updatedItems));
+                setCartData(prevCartData => ({
+                    ...prevCartData,
+                    items: updatedItems
+                }));
             } else {
                 const newItem = {
                     _id: product._id,
                     name: product.productName,
                     price: product.price,
                     quantity: 1,
-                    image: product.images[0]
+                    image: product.images[0] // Store the image path from the API
                 };
-                updatedItems = [...existingCartItems, newItem];
-            }
 
-            localStorage.setItem('cartItems', JSON.stringify(updatedItems));
-            setCartData(prevCartData => ({
-                ...prevCartData,
-                items: updatedItems
-            }));
+                const updatedItems = [...existingCartItems, newItem];
+                localStorage.setItem('cartItems', JSON.stringify(updatedItems));
+                setCartData(prevCartData => ({
+                    ...prevCartData,
+                    items: updatedItems
+                }));
+            }
 
             calculateCartSummary(updatedItems);
         } catch (error) {
@@ -329,6 +357,7 @@ const Cart = ({ onCartUpdate }) => {
         }
     };
 
+    // Update the handleQuantityChange function to preserve image
     const handleQuantityChange = (productId, change) => {
         setCartData(prevCartData => {
             const updatedItems = prevCartData.items.map(item =>
@@ -351,6 +380,7 @@ const Cart = ({ onCartUpdate }) => {
         });
     };
 
+    // Update the handleRemoveItem function
     const handleRemoveItem = (productId) => {
         setCartData(prevCartData => {
             const updatedItems = prevCartData.items.filter(item => item._id !== productId);
@@ -374,6 +404,7 @@ const Cart = ({ onCartUpdate }) => {
         );
     }
 
+    // Check if cartData and cartData.items exist before rendering
     if (!cartData || !cartData.items) {
         return (
             <Box textAlign="center" py={8}>
@@ -513,13 +544,9 @@ const Cart = ({ onCartUpdate }) => {
                                                     >
                                                         <RemoveIcon />
                                                     </IconButton>
-                                                    <TextField
-                                                        type="number"
-                                                        value={item.quantity || 1}
-                                                        onChange={(e) => updateItemQuantity(item._id, parseInt(e.target.value))}
-                                                        size="small"
-                                                        sx={{ width: 50 }}
-                                                    />
+                                                    <Typography variant="h6" component="span">
+                                                        {item.quantity || 1}
+                                                    </Typography>
                                                     <IconButton
                                                         onClick={() => handleQuantityChange(item._id, 1)}
                                                         color="primary"
@@ -566,6 +593,7 @@ const Cart = ({ onCartUpdate }) => {
                                 </Typography>
                                 <Divider sx={{ bgcolor: 'rgba(255,255,255,0.2)', my: 2 }} />
 
+                                {/* Cart Summary */}
                                 <Box sx={{ mb: 3 }}>
                                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                                         <Typography>Subtotal:</Typography>
@@ -586,6 +614,7 @@ const Cart = ({ onCartUpdate }) => {
                                     </Box>
                                 </Box>
 
+                                {/* Items Summary */}
                                 <Box sx={{ mb: 3, p: 2, bgcolor: 'rgba(255,255,255,0.1)', borderRadius: 1 }}>
                                     <Typography variant="subtitle2" gutterBottom>
                                         Cart Items ({cartData.items.length})
@@ -602,6 +631,7 @@ const Cart = ({ onCartUpdate }) => {
                                     ))}
                                 </Box>
 
+                                {/* Checkout Button */}
                                 <motion.div
                                     whileHover={{ scale: 1.02 }}
                                     whileTap={{ scale: 0.98 }}
@@ -612,7 +642,7 @@ const Cart = ({ onCartUpdate }) => {
                                                 const whatsappMessage = createWhatsAppMessage(cartData.items, cartData.summary);
                                                 const whatsappUrl = `https://wa.me/+917684836139?text=${whatsappMessage}`;
                                                 window.open(whatsappUrl, '_blank');
-                                                clearCartAfterDelay();
+                                                clearCartAfterDelay(); // Call the function here
                                             } else {
                                                 setError('Your cart is empty!');
                                             }
@@ -623,6 +653,7 @@ const Cart = ({ onCartUpdate }) => {
                                     </AnimatedCheckoutButton>
                                 </motion.div>
 
+                                {/* Additional Info */}
                                 <Box sx={{ mt: 2, textAlign: 'center' }}>
                                     <Typography variant="caption" sx={{ opacity: 0.8 }}>
                                         Secure Checkout • 100% Purchase Protection

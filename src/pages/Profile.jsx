@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { 
     Box, Typography, Container, Paper, Avatar, 
@@ -23,7 +23,6 @@ import DialogActions from '@mui/material/DialogActions';
 import Stepper from '@mui/material/Stepper';
 import Step from '@mui/material/Step';
 import StepLabel from '@mui/material/StepLabel';
-import { useAuth } from '../Context/Context';
 
 // Define base URL for API
 const API_BASE_URL = 'https://boldservebackend-production.up.railway.app/api';
@@ -55,8 +54,7 @@ const pulse = keyframes`
 const Profile = () => {
     const location = useLocation();
     const navigate = useNavigate();
-    const { user, token } = useAuth();
-    const [userData, setUserData] = useState(null);
+    const [userData, setUserData] = useState(JSON.parse(localStorage.getItem('userData')) || {});
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [snackbar, setSnackbar] = useState({
@@ -72,11 +70,11 @@ const Profile = () => {
     // States for edit modal
     const [openModal, setOpenModal] = useState(false);
     const [formData, setFormData] = useState({
-        fullName: '',
-        email: '',
-        mobile: '',
-        address: '',
-        bio: ''
+        fullName: userData?.fullName || '',
+        email: userData?.email || '',
+        mobile: userData?.mobile || '',
+        address: userData?.address || '',
+        bio: userData?.bio || ''
     });
 
     const [pincode, setPincode] = useState('');
@@ -104,9 +102,6 @@ const Profile = () => {
     const [paymentStatus, setPaymentStatus] = useState(null);
     const [orderStatus, setOrderStatus] = useState(null);
 
-    const [cartItems, setCartItems] = useState([]);
-    const [cartTotal, setCartTotal] = useState(0);
-
     const showMessage = (message, severity = 'success') => {
         setSnackbar({
             open: true,
@@ -119,24 +114,58 @@ const Profile = () => {
         setSnackbar(prev => ({ ...prev, open: false }));
     };
 
-    const fetchUserData = useCallback(async () => {
+    useEffect(() => {
+        fetchUserData();
+    }, []);
+
+    const fetchUserData = async () => {
         try {
             setLoading(true);
-            const response = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/users/profile`, {
-                headers: { Authorization: `Bearer ${token}` }
+            setError(null);
+            
+            const token = localStorage.getItem('token');
+            if (!token) {
+                navigate('/login');
+                return;
+            }
+
+            const response = await axios({
+                method: 'GET',
+                url: `${API_BASE_URL}/users/profile`,
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                timeout: 5000 // 5 second timeout
             });
-            setUserData(response.data);
-            setFormData({
-                fullName: response.data.fullName || '',
-                email: response.data.email || '',
-                mobile: response.data.mobile || '',
-                address: response.data.address || '',
-                bio: response.data.bio || ''
-            });
-            localStorage.setItem('userData', JSON.stringify(response.data));
+
+            if (response.data.success) {
+                const fetchedUserData = response.data.user;
+                setUserData(fetchedUserData);
+                setFormData({
+                    fullName: fetchedUserData.fullName || '',
+                    email: fetchedUserData.email || '',
+                    mobile: fetchedUserData.mobile || '',
+                    address: fetchedUserData.address || '',
+                    bio: fetchedUserData.bio || ''
+                });
+                localStorage.setItem('userData', JSON.stringify(fetchedUserData));
+            }
         } catch (error) {
-            setError('Failed to fetch user data');
-            console.error('Error fetching user data:', error);
+            console.error('Network or server error:', error);
+            
+            if (error.code === 'ECONNABORTED') {
+                setError('Request timed out. Please check your connection and try again.');
+            } else if (!navigator.onLine) {
+                setError('You are offline. Please check your internet connection.');
+            } else if (error.response?.status === 401) {
+                localStorage.removeItem('token');
+                localStorage.removeItem('userData');
+                navigate('/login');
+            } else {
+                setError('Failed to connect to server. Please try again later.');
+            }
+            
             showMessage(
                 error.response?.data?.message || 'Network error. Please check your connection.',
                 'error'
@@ -144,24 +173,12 @@ const Profile = () => {
         } finally {
             setLoading(false);
         }
-    }, [token]);
-
-    useEffect(() => {
-        fetchUserData();
-        // Load cart items from localStorage
-        const savedCart = localStorage.getItem('cart');
-        if (savedCart) {
-            const parsedCart = JSON.parse(savedCart);
-            setCartItems(parsedCart);
-            // Calculate total
-            const total = parsedCart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-            setCartTotal(total);
-        }
-    }, [fetchUserData]);
+    };
 
     const fetchOrders = async () => {
         setLoadingOrders(true);
         try {
+            const token = localStorage.getItem('token');
             const response = await axios.get('http://localhost:5000/api/orders/user-orders', {
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -214,14 +231,23 @@ const Profile = () => {
         setLoading(true);
 
         try {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                navigate('/login');
+                return;
+            }
+
+            const updateData = {};
+            if (formData.email !== userData.email && formData.email.trim() !== '') {
+                updateData.email = formData.email;
+            }
+            updateData.address = formData.address;
+            updateData.bio = formData.bio;
+
             const response = await axios({
                 method: 'POST',
                 url: `${API_BASE_URL}/users/update-profile`,
-                data: {
-                    email: formData.email,
-                    address: formData.address,
-                    bio: formData.bio
-                },
+                data: updateData,
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
@@ -280,28 +306,32 @@ const Profile = () => {
 
     const handlePlaceOrder = async () => {
         try {
-            const response = await axios.post(
+            const token = localStorage.getItem('token');
+            // Create order in your backend
+            const orderResponse = await axios.post(
                 'http://localhost:5000/api/orders/create',
                 {
                     shippingAddress,
-                    items: cartItems,
-                    totalAmount: cartTotal
+                    items: cartItems, // You'll need to pass cart items
+                    totalAmount: cartTotal // You'll need to pass cart total
                 },
                 {
                     headers: { 'Authorization': `Bearer ${token}` }
                 }
             );
 
-            if (response.data.success) {
-                setOrderDetails(response.data.order);
-                setActiveStep(1);
+            if (orderResponse.data.success) {
+                setOrderDetails(orderResponse.data.order);
+                setActiveStep(1); // Move to payment step
                 
-                const paymentAmount = response.data.order.totalAmount * 0.5;
+                // Calculate 50% of total amount
+                const paymentAmount = orderResponse.data.order.totalAmount * 0.5;
 
+                // Initialize payment
                 const paymentResponse = await axios.post(
                     'http://localhost:5000/api/payments/initiate',
                     {
-                        orderId: response.data.order._id,
+                        orderId: orderResponse.data.order._id,
                         amount: paymentAmount
                     },
                     {
@@ -309,8 +339,9 @@ const Profile = () => {
                     }
                 );
 
+                // Handle payment response (you'll integrate Razorpay here later)
                 setPaymentStatus('success');
-                setActiveStep(2);
+                setActiveStep(2); // Move to confirmation step
             }
         } catch (error) {
             console.error('Error placing order:', error);
@@ -358,6 +389,7 @@ const Profile = () => {
                             Shipping Details
                         </Typography>
                         
+                        {/* User Information (Auto-filled) */}
                         <TextField
                             fullWidth
                             label="Full Name"
@@ -380,6 +412,7 @@ const Profile = () => {
                             sx={{ mb: 2 }}
                         />
 
+                        {/* Address Information */}
                         <TextField
                             fullWidth
                             label="Address Line 1"
@@ -441,6 +474,7 @@ const Profile = () => {
                         <Alert severity="info" sx={{ mb: 3 }}>
                             Remaining 50% to be paid after delivery completion
                         </Alert>
+                        {/* Razorpay integration will go here */}
                     </Box>
                 )}
 

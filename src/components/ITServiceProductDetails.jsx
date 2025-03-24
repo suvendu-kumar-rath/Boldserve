@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { 
     Box, 
@@ -24,6 +25,9 @@ import RemoveIcon from '@mui/icons-material/Remove';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import ShoppingBasketIcon from '@mui/icons-material/ShoppingBasket';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+// Remove these imports as they're no longer needed
+// import axios from 'axios';
+// import { ratingsAndReviewsApi } from '../utils/axios';
 import Login from '../pages/Login'; // Import Login modal
 import { keyframes } from '@mui/system';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
@@ -81,14 +85,11 @@ const ITServiceProductDetails = ({ onAddToCart, isLoggedIn }) => {
     const [userRating, setUserRating] = useState(0);
     const [reviewText, setReviewText] = useState('');
     const [showQuestions, setShowQuestions] = useState(false);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-    const [product, setProduct] = useState(null);
-    const [ratings, setRatings] = useState([]);
-    const [reviews, setReviews] = useState([]);
-    const [productRating, setProductRating] = useState({
-        averageRating: 0,
-        totalReviews: 0
+    const [loading, setLoading] = useState(false); // Add loading state
+    const [error, setError] = useState(null); // Add error state
+    const [productRating] = useState({
+        averageRating: 4.5,
+        totalReviews: 128
     });
 
     // Static product data
@@ -187,20 +188,30 @@ const ITServiceProductDetails = ({ onAddToCart, isLoggedIn }) => {
     };
 
     // Get product from location state or static data
-    const productData = location.state?.product || staticProducts[id];
+    const product = location.state?.product || staticProducts[id];
+
+    // Remove fetchProductRatings and its useEffect since we're using static data
+    
+    const fetchProductRatings = async () => {
+        try {
+            const response = await ratingsAndReviewsApi.getProductRatings(id);
+            if (response.data.success) {
+                const { averageRating, totalReviews } = response.data.data;
+                setProductRating({
+                    averageRating,
+                    totalReviews
+                });
+            }
+        } catch (error) {
+            console.error('Error fetching ratings:', error);
+        }
+    };
 
     useEffect(() => {
-        fetchProductDetails();
+        if (id) {
+            fetchProductRatings();
+        }
     }, [id]);
-
-    const fetchProductDetails = () => {
-        setProduct(productData);
-        // Set initial rating from product data
-        setProductRating({
-            averageRating: productData?.rating || 0,
-            totalReviews: productData?.reviews?.length || 0
-        });
-    };
 
     const handleQuantityChange = (increment) => {
         setQuantity(prev => {
@@ -242,9 +253,9 @@ const ITServiceProductDetails = ({ onAddToCart, isLoggedIn }) => {
         navigate('/cart');
     };
 
-    const handleRatingClick = (rating) => {
-        setProductRating(rating);
-        // Add your rating submission logic here
+    const handleRatingClick = () => {
+        if (handleAuthRequired('review')) return;
+        // Continue with rating functionality
     };
 
     const handleSubmitReview = async () => {

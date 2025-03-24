@@ -17,7 +17,7 @@ import {
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-import { format as formatDate, addDays } from 'date-fns';
+import { format, addDays } from 'date-fns';
 import bookMeetingRoomImg from '../assets/damir-kopezhanov-VM1Voswbs0A-unsplash.jpg';
 import logo from '../assets/BoldTribe Logo-3.png';
 
@@ -28,11 +28,9 @@ const BookMeetingRoom = () => {
     const [selectedRoom, setSelectedRoom] = useState(null);
     const [bookingType, setBookingType] = useState('');
     const [memberType, setMemberType] = useState('');
+    
     const [selectedSeating, setSelectedSeating] = useState('');
-    const [selectedDate, setSelectedDate] = useState(null);
-    const [selectedTime, setSelectedTime] = useState('');
-    const [selectedEndTime, setSelectedEndTime] = useState('');
-    const [calculatedPrice, setCalculatedPrice] = useState({ subtotal: 0, gst: 0, total: 0, duration: 0 });
+    const [showTimeSlotGridModal, setShowTimeSlotGridModal] = useState(false);
     
     const seatingOptions = [
         { id: 'C1', name: '4 Seater', capacity: 4 },
@@ -52,19 +50,19 @@ const BookMeetingRoom = () => {
     // Update the bookedRooms state with sample bookings
     const [bookedRooms, setBookedRooms] = useState({
         // Today's bookings
-        [`${formatDate(new Date(), 'yyyy-MM-dd')}-09:00`]: ['307', '420'],
-        [`${formatDate(new Date(), 'yyyy-MM-dd')}-12:00`]: ['630', '170'],
-        [`${formatDate(new Date(), 'yyyy-MM-dd')}-15:00`]: ['730'],
+        [`${format(new Date(), 'yyyy-MM-dd')}-09:00`]: ['307', '420'],
+        [`${format(new Date(), 'yyyy-MM-dd')}-12:00`]: ['630', '170'],
+        [`${format(new Date(), 'yyyy-MM-dd')}-15:00`]: ['730'],
 
         // Tomorrow's bookings
-        [`${formatDate(addDays(new Date(), 1), 'yyyy-MM-dd')}-10:30`]: ['307'],
-        [`${formatDate(addDays(new Date(), 1), 'yyyy-MM-dd')}-13:30`]: ['420', '630'],
-        [`${formatDate(addDays(new Date(), 1), 'yyyy-MM-dd')}-16:30`]: ['170'],
+        [`${format(addDays(new Date(), 1), 'yyyy-MM-dd')}-10:30`]: ['307'],
+        [`${format(addDays(new Date(), 1), 'yyyy-MM-dd')}-13:30`]: ['420', '630'],
+        [`${format(addDays(new Date(), 1), 'yyyy-MM-dd')}-16:30`]: ['170'],
 
         // Day after tomorrow's bookings
-        [`${formatDate(addDays(new Date(), 2), 'yyyy-MM-dd')}-09:00`]: ['730'],
-        [`${formatDate(addDays(new Date(), 2), 'yyyy-MM-dd')}-12:00`]: ['307', '420'],
-        [`${formatDate(addDays(new Date(), 2), 'yyyy-MM-dd')}-15:00`]: ['630'],
+        [`${format(addDays(new Date(), 2), 'yyyy-MM-dd')}-09:00`]: ['730'],
+        [`${format(addDays(new Date(), 2), 'yyyy-MM-dd')}-12:00`]: ['307', '420'],
+        [`${format(addDays(new Date(), 2), 'yyyy-MM-dd')}-15:00`]: ['630'],
     });
 
     // Add this function to calculate duration and price
@@ -98,6 +96,36 @@ const BookMeetingRoom = () => {
         }
     };
 
+    // Remove this standalone Box component
+    // <Box
+    //     key={`${startTime}-${endTime}`}
+    //     onClick={() => {
+    //         if (isRoomAvailable(room.id, selectedDate, startTime)) {
+    //             handleTimeSlotClick(room.id, startTime, endTime);
+    //         }
+    //     }}
+    // >
+    //     <Typography>
+    //         {`${startTime}${parseInt(startTime) < 12 ? 'AM' : 'PM'}-${endTime}${parseInt(endTime) < 12 ? 'AM' : 'PM'}`}
+    //         {selectedTime === startTime && (
+    //             <Typography
+    //                 sx={{
+    //                     fontSize: '0.75rem',
+    //                     color: '#4CAF50',
+    //                     mt: 1
+    //                 }}
+    //             >
+    //                 ₹{calculatedPrice.total.toFixed(2)} (incl. GST)
+    //             </Typography>
+    //         )}
+    //     </Typography>
+    // </Box>
+
+    const [selectedDate, setSelectedDate] = useState(null);
+    const [selectedTime, setSelectedTime] = useState('');
+    const [selectedEndTime, setSelectedEndTime] = useState('');
+    const [calculatedPrice, setCalculatedPrice] = useState({ subtotal: 0, gst: 0, total: 0, duration: 0 });
+
     // Update timeSlots to include 30-minute intervals
     const timeSlots = Array.from({ length: 19 }, (_, i) => {
         const hour = Math.floor(i / 2) + 9;
@@ -108,6 +136,13 @@ const BookMeetingRoom = () => {
             value: time
         };
     });
+
+    // Get available end times based on start time
+    const getEndTimeSlots = (startTime) => {
+        if (!startTime) return [];
+        const startIndex = timeSlots.findIndex(slot => slot.value === startTime);
+        return timeSlots.slice(startIndex + 1);
+    };
 
     // Calculate next 3 days
     const getAvailableDates = () => {
@@ -137,6 +172,7 @@ const BookMeetingRoom = () => {
             duration
         };
     };
+
 
     // Update time slot selection modal content
     const TimeSlotContent = () => (
@@ -170,6 +206,7 @@ const BookMeetingRoom = () => {
                         value={selectedSeating}
                         onChange={(e) => {
                             setSelectedSeating(e.target.value);
+                            setShowTimeSlotGridModal(true);
                         }}
                         label="Seating Capacity"
                     >
@@ -189,14 +226,14 @@ const BookMeetingRoom = () => {
         if (!date || !startTime || !endTime) return true;
         
         // Mock availability check (replace with your backend logic)
-        const timeKey = `${formatDate(date, 'yyyy-MM-dd')}-${startTime}-${endTime}`;
+        const timeKey = `${format(date, 'yyyy-MM-dd')}-${startTime}-${endTime}`;
         return !bookedRooms[timeKey]?.includes(roomId);
     };
 
     // Update handleFinalBooking
     // Add this function after the bookedRooms state declaration
     const addNewBooking = (date, startTime, roomId) => {
-        const timeKey = `${formatDate(date, 'yyyy-MM-dd')}-${startTime}`;
+        const timeKey = `${format(date, 'yyyy-MM-dd')}-${startTime}`;
         setBookedRooms(prevBookings => ({
             ...prevBookings,
             [timeKey]: [...(prevBookings[timeKey] || []), roomId]
@@ -209,7 +246,7 @@ const BookMeetingRoom = () => {
             // Add the new booking
             addNewBooking(selectedDate, selectedTime, selectedRoom);
 
-            const formattedDate = formatDate(selectedDate, "MMM dd, yyyy");
+            const formattedDate = format(selectedDate, "MMM dd, yyyy");
             const message = encodeURIComponent(
                 `Hi, I want to book the meeting room ${selectedRoom} as a ${memberType} from ${formattedDate} ${selectedTime} to ${selectedEndTime}. Price: INR ${Math.ceil(calculatedPrice.total)}/- (Including GST)`
             );
@@ -251,6 +288,7 @@ const BookMeetingRoom = () => {
             <Box
                 sx={{
                     minHeight: '100vh',
+                    position: 'relative',
                     overflow: 'hidden',
                     display: 'flex',
                     flexDirection: 'column',
@@ -259,7 +297,6 @@ const BookMeetingRoom = () => {
                     my: 8,
                     pt: 4,
                     pb: 4,
-                    position: 'relative',
                     '&::before': {
                         content: '""',
                         position: 'absolute',
@@ -346,6 +383,7 @@ const BookMeetingRoom = () => {
                         zIndex: 2
                     }}
                 >
+                    {/* Removed the Box with logo here */}
                     <Typography 
                         variant="h4" 
                         component="h1" 
@@ -526,7 +564,7 @@ const BookMeetingRoom = () => {
                         <FormControl fullWidth sx={{ mb: 2 }}>
                             <InputLabel>Select Date</InputLabel>
                             <Select
-                                value={selectedDate ? formatDate(selectedDate, 'yyyy-MM-dd') : ''}
+                                value={selectedDate ? format(selectedDate, 'yyyy-MM-dd') : ''}
                                 onChange={(e) => {
                                     const selectedDateStr = e.target.value;
                                     const [year, month, day] = selectedDateStr.split('-').map(Number);
@@ -537,10 +575,10 @@ const BookMeetingRoom = () => {
                             >
                                 {getAvailableDates().map((date) => (
                                     <MenuItem 
-                                        key={formatDate(date, 'yyyy-MM-dd')} 
-                                        value={formatDate(date, 'yyyy-MM-dd')}
+                                        key={format(date, 'yyyy-MM-dd')} 
+                                        value={format(date, 'yyyy-MM-dd')}
                                     >
-                                        {formatDate(date, 'dd MMM yyyy')}
+                                        {format(date, 'dd MMM yyyy')}
                                     </MenuItem>
                                 ))}
                             </Select>
@@ -566,6 +604,8 @@ const BookMeetingRoom = () => {
                                 </Select>
                             </FormControl>
                         )}
+
+                        {/* Remove the Start Time dropdown section */}
 
                         <Button
                             fullWidth
@@ -620,20 +660,20 @@ const BookMeetingRoom = () => {
                         }}>
                             {getAvailableDates().map((date) => (
                                 <Button
-                                    key={formatDate(date, 'yyyy-MM-dd')}
-                                    variant={selectedDate && formatDate(date, 'yyyy-MM-dd') === formatDate(selectedDate, 'yyyy-MM-dd') 
+                                    key={format(date, 'yyyy-MM-dd')}
+                                    variant={selectedDate && format(date, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd') 
                                         ? "contained" 
                                         : "outlined"
                                     }
                                     onClick={() => setSelectedDate(date)}
                                     sx={{
                                         minWidth: 120,
-                                        background: selectedDate && formatDate(date, 'yyyy-MM-dd') === formatDate(selectedDate, 'yyyy-MM-dd')
+                                        background: selectedDate && format(date, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd')
                                             ? 'linear-gradient(135deg, #7B68EE 0%, #6A5ACD 100%)'
                                             : 'transparent'
                                     }}
                                 >
-                                    {formatDate(date, 'dd MMM yyyy')}
+                                    {format(date, 'dd MMM yyyy')}
                                 </Button>
                             ))}
                         </Box>
@@ -833,3 +873,60 @@ const BookMeetingRoom = () => {
 };
 
 export default BookMeetingRoom;
+
+// Add this before the return statement
+    const TimeSlotGrid = () => {
+        const availableRooms = rooms.filter(room => room.seating === selectedSeating);
+        
+        const timeSlotStatus = (time) => {
+            const timeKey = `${format(selectedDate, 'yyyy-MM-dd')}-${time}`;
+            const bookedRoomsForSlot = bookedRooms[timeKey] || [];
+            const isAvailable = availableRooms.some(room => !bookedRoomsForSlot.includes(room.id));
+            return isAvailable;
+        };
+
+        return (
+            <Box sx={{ width: '100%' }}>
+                <Typography variant="h6" gutterBottom>
+                    Available Time Slots
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 3 }}>
+                    Date: {format(selectedDate, 'dd MMM yyyy')}
+                    <br />
+                    Seating: {seatingOptions.find(opt => opt.id === selectedSeating)?.name}
+                </Typography>
+                
+                <Box sx={{ 
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(4, 1fr)',
+                    gap: 2,
+                    mb: 3
+                }}>
+                    {timeSlots.map((slot) => (
+                        <Button
+                            key={slot.value}
+                            variant="contained"
+                            onClick={() => {
+                                if (timeSlotStatus(slot.value)) {
+                                    setSelectedTime(slot.value);
+                                    setShowTimeSlotGridModal(false);
+                                } else {
+                                    alert('This time slot is not available. Please select another.');
+                                }
+                            }}
+                            sx={{
+                                bgcolor: timeSlotStatus(slot.value) ? '#4CAF50' : '#FF0000',
+                                '&:hover': {
+                                    bgcolor: timeSlotStatus(slot.value) ? '#45a049' : '#cc0000'
+                                },
+                                color: 'white',
+                                p: 2
+                            }}
+                        >
+                            {slot.display}
+                        </Button>
+                    ))}
+                </Box>
+            </Box>
+        );
+    };
