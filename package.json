@@ -18,6 +18,7 @@
     "axios": "^1.8.4",
     "date-fns": "^2.30.0",
     "framer-motion": "^12.5.0",
+    "package-name": "^0.1.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-hot-toast": "^2.5.2",
