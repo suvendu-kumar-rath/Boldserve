@@ -1264,7 +1264,6 @@ const handleHourlyMemberType = (memberType) => {
 };
 
 
-
 // Add this before the return statement
     const TimeSlotGrid = () => {
         const availableRooms = rooms.filter(room => room.seating === selectedSeating);
