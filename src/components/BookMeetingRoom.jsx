@@ -96,7 +96,7 @@ const BookMeetingRoom = () => {
         };
     };
 
-    // Update time slot selection handler for multiple slots with limits based on member type
+    // Update time slot selection handler for multiple slots without limits for hourly booking
     const handleTimeSlotSelection = (slot) => {
         if (isRoomAvailable('time1', selectedDate, slot.start, slot.end)) {
             // Check if this slot is already selected
@@ -109,14 +109,6 @@ const BookMeetingRoom = () => {
                 // If slot is already selected, remove it
                 newSelectedSlots = selectedTimeSlots.filter((_, index) => index !== slotIndex);
             } else {
-                // Check if adding this slot would exceed the maximum allowed slots
-                const maxSlots = memberType === 'member' ? 3 : 4; // Max 3 slots for members, 4 for non-members
-                
-                if (selectedTimeSlots.length >= maxSlots) {
-                    // Maximum slots already selected, don't add more
-                    return;
-                }
-                
                 // Add the new slot temporarily to check continuity
                 const potentialSlots = [...selectedTimeSlots, slot];
                 
@@ -139,7 +131,7 @@ const BookMeetingRoom = () => {
                     return;
                 }
                 
-                // If all checks pass, add the new slot
+                // Add the new slot (no limit restrictions for hourly booking)
                 newSelectedSlots = potentialSlots;
             }
             
@@ -160,15 +152,14 @@ const BookMeetingRoom = () => {
         }
     };
     
-    // Get maximum allowed time slots based on member type
+    // Get maximum allowed time slots - unlimited for hourly booking
     const getMaxAllowedSlots = () => {
-        return memberType === 'member' ? 3 : 4; // Max 3 slots for members, 4 for non-members
+        return 999; // Unlimited slots for hourly booking
     };
     
-    // Get remaining available slots
+    // Get remaining available slots - always show unlimited
     const getRemainingSlots = () => {
-        const maxSlots = getMaxAllowedSlots();
-        return maxSlots - selectedTimeSlots.length;
+        return 'unlimited';
     };
     
     // Calculate total price for all selected time slots
@@ -1133,23 +1124,76 @@ const handleHourlyMemberType = (memberType) => {
                                     </FormControl>
                                 )}
 
-                                <Typography variant="subtitle2" sx={{ mb: 2, color: '#7B68EE' }}>
-                                    You can select up to {getMaxAllowedSlots()} time slots ({getRemainingSlots()} remaining)
-                                </Typography>
+                                <Box sx={{ 
+                                    mb: 3, 
+                                    p: 3, 
+                                    background: 'linear-gradient(135deg, rgba(123, 104, 238, 0.1) 0%, rgba(106, 90, 205, 0.1) 100%)',
+                                    borderRadius: 3,
+                                    border: '2px solid rgba(123, 104, 238, 0.2)',
+                                    textAlign: 'center'
+                                }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 2 }}>
+                                        <Box sx={{
+                                            width: 32,
+                                            height: 32,
+                                            borderRadius: '50%',
+                                            background: 'linear-gradient(135deg, #7B68EE, #6A5ACD)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            mr: 2,
+                                            boxShadow: '0 4px 15px rgba(123, 104, 238, 0.3)'
+                                        }}>
+                                            <Typography sx={{ color: 'white', fontSize: '16px', fontWeight: 'bold' }}>
+                                                {selectedTimeSlots.length}
+                                            </Typography>
+                                        </Box>
+                                                                                 <Typography variant="h6" sx={{ 
+                                             color: '#1a237e', 
+                                             fontWeight: 700,
+                                             letterSpacing: '0.5px'
+                                         }}>
+                                             Select any number of consecutive time slots
+                                         </Typography>
+                                    </Box>
+                                                                         <Typography variant="body2" sx={{ 
+                                         color: '#5c6bc0', 
+                                         fontWeight: 600,
+                                         fontSize: '0.9rem'
+                                     }}>
+                                         No limit on slots • Select consecutive time slots only
+                                     </Typography>
+                                </Box>
 
                                 {/* Google Meet Style Time Slot List */}
                                 <Box sx={{ 
-                                    maxHeight: '400px',
+                                    maxHeight: '450px',
                                     overflowY: 'auto',
                                     mb: 3,
-                                    border: '1px solid #e0e0e0',
-                                    borderRadius: 2,
-                                    bgcolor: '#fafafa'
+                                    border: '2px solid #e8eaf6',
+                                    borderRadius: 3,
+                                    bgcolor: '#ffffff',
+                                    boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+                                    '&::-webkit-scrollbar': {
+                                        width: '8px',
+                                    },
+                                    '&::-webkit-scrollbar-track': {
+                                        background: '#f1f1f1',
+                                        borderRadius: '10px',
+                                    },
+                                    '&::-webkit-scrollbar-thumb': {
+                                        background: '#c1c1c1',
+                                        borderRadius: '10px',
+                                        '&:hover': {
+                                            background: '#a8a8a8',
+                                        }
+                                    }
                                 }}>
                                     {availableTimeSlots.map((slot, index) => {
                                         const isAvailable = isRoomAvailable('time1', selectedDate, slot.start, slot.end);
                                         const isSelected = selectedTimeSlots.some(s => s.start === slot.start && s.end === slot.end);
-                                        const canSelect = isAvailable && (isSelected || selectedTimeSlots.length < getMaxAllowedSlots());
+                                        const canSelect = isAvailable;
+                                        const price = calculateDurationAndPrice(slot.start, slot.end).total;
                                         
                                         return (
                                             <Box
@@ -1163,179 +1207,306 @@ const handleHourlyMemberType = (memberType) => {
                                                     display: 'flex',
                                                     alignItems: 'center',
                                                     justifyContent: 'space-between',
-                                                    p: 2,
-                                                    borderBottom: index < availableTimeSlots.length - 1 ? '1px solid #e0e0e0' : 'none',
+                                                    p: 3,
+                                                    m: 1.5,
+                                                    borderRadius: 3,
                                                     cursor: canSelect ? 'pointer' : 'not-allowed',
-                                                    bgcolor: isSelected 
-                                                        ? 'rgba(25, 118, 210, 0.08)' 
-                                                        : 'transparent',
+                                                    background: isSelected 
+                                                        ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+                                                        : isAvailable
+                                                        ? 'linear-gradient(135deg, #ffffff 0%, #f8f9ff 100%)'
+                                                        : 'linear-gradient(135deg, #ffebee 0%, #fce4ec 100%)',
                                                     border: isSelected 
-                                                        ? '2px solid #1976d2' 
-                                                        : '2px solid transparent',
-                                                    borderRadius: isSelected ? 1 : 0,
-                                                    mx: isSelected ? 1 : 0,
-                                                    my: isSelected ? 0.5 : 0,
-                                                    transition: 'all 0.2s ease',
+                                                        ? '3px solid #5e72e4' 
+                                                        : isAvailable
+                                                        ? '2px solid #e3f2fd'
+                                                        : '2px solid #ffcdd2',
+                                                    boxShadow: isSelected 
+                                                        ? '0 8px 25px rgba(94, 114, 228, 0.3)'
+                                                        : isAvailable
+                                                        ? '0 4px 15px rgba(0,0,0,0.08)'
+                                                        : '0 2px 8px rgba(244, 67, 54, 0.15)',
+                                                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                                    transform: isSelected ? 'translateY(-2px) scale(1.02)' : 'translateY(0) scale(1)',
                                                     '&:hover': canSelect ? {
-                                                        bgcolor: isSelected 
-                                                            ? 'rgba(25, 118, 210, 0.12)' 
-                                                            : 'rgba(0, 0, 0, 0.04)',
-                                                        transform: 'translateX(4px)'
+                                                        transform: isSelected 
+                                                            ? 'translateY(-4px) scale(1.03)' 
+                                                            : 'translateY(-2px) scale(1.01)',
+                                                        boxShadow: isSelected
+                                                            ? '0 12px 35px rgba(94, 114, 228, 0.4)'
+                                                            : '0 8px 25px rgba(0,0,0,0.12)',
+                                                        border: isSelected 
+                                                            ? '3px solid #4c63d2'
+                                                            : '2px solid #bbdefb'
                                                     } : {},
-                                                    opacity: !isAvailable ? 0.5 : 1
+                                                    opacity: !isAvailable ? 0.6 : 1,
+                                                    position: 'relative',
+                                                    overflow: 'hidden',
+                                                    '&::before': isSelected ? {
+                                                        content: '""',
+                                                        position: 'absolute',
+                                                        top: 0,
+                                                        left: 0,
+                                                        right: 0,
+                                                        height: '4px',
+                                                        background: 'linear-gradient(90deg, #00d4aa, #00d4aa, #667eea)',
+                                                        animation: 'shimmer 2s infinite linear'
+                                                    } : {},
+                                                    '@keyframes shimmer': {
+                                                        '0%': { transform: 'translateX(-100%)' },
+                                                        '100%': { transform: 'translateX(100%)' }
+                                                    }
                                                 }}
                                             >
                                                 <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
-                                                    {/* Time Display */}
+                                                    {/* Time Display with Enhanced Styling */}
                                                     <Box sx={{ 
-                                                        minWidth: 120,
+                                                        minWidth: 140,
                                                         display: 'flex',
                                                         flexDirection: 'column',
-                                                        mr: 2
+                                                        alignItems: 'center',
+                                                        mr: 3,
+                                                        p: 2,
+                                                        borderRadius: 2,
+                                                        background: isSelected 
+                                                            ? 'rgba(255,255,255,0.2)' 
+                                                            : 'rgba(103, 126, 234, 0.08)',
+                                                        backdropFilter: 'blur(10px)',
+                                                        border: `1px solid ${isSelected ? 'rgba(255,255,255,0.3)' : 'rgba(103, 126, 234, 0.2)'}`
                                                     }}>
                                                         <Typography
-                                                            variant="h6"
+                                                            variant="h5"
                                                             sx={{
-                                                                fontWeight: 500,
-                                                                color: isSelected ? '#1976d2' : '#1a1a1a',
-                                                                fontSize: '1rem'
+                                                                fontWeight: 700,
+                                                                color: isSelected ? '#ffffff' : '#1a237e',
+                                                                fontSize: '1.25rem',
+                                                                letterSpacing: '0.5px',
+                                                                textShadow: isSelected ? '0 2px 4px rgba(0,0,0,0.3)' : 'none'
                                                             }}
                                                         >
                                                             {slot.start}
                                                         </Typography>
+                                                        <Box sx={{ 
+                                                            width: '24px', 
+                                                            height: '2px', 
+                                                            bgcolor: isSelected ? 'rgba(255,255,255,0.6)' : '#667eea',
+                                                            borderRadius: 1,
+                                                            my: 0.5
+                                                        }} />
+                                                        <Typography
+                                                            variant="h5"
+                                                            sx={{
+                                                                fontWeight: 700,
+                                                                color: isSelected ? '#ffffff' : '#1a237e',
+                                                                fontSize: '1.25rem',
+                                                                letterSpacing: '0.5px',
+                                                                textShadow: isSelected ? '0 2px 4px rgba(0,0,0,0.3)' : 'none'
+                                                            }}
+                                                        >
+                                                            {slot.end}
+                                                        </Typography>
                                                         <Typography
                                                             variant="caption"
                                                             sx={{
-                                                                color: '#666',
-                                                                fontSize: '0.75rem'
+                                                                color: isSelected ? 'rgba(255,255,255,0.9)' : '#5c6bc0',
+                                                                fontSize: '0.75rem',
+                                                                fontWeight: 600,
+                                                                mt: 0.5,
+                                                                textTransform: 'uppercase',
+                                                                letterSpacing: '0.5px'
                                                             }}
                                                         >
                                                             {slot.duration}
                                                         </Typography>
                                                     </Box>
 
-                                                    {/* Duration Bar */}
+                                                    {/* Enhanced Duration Visualization */}
                                                     <Box sx={{ 
                                                         flex: 1,
-                                                        mx: 2,
+                                                        mx: 3,
                                                         display: 'flex',
-                                                        alignItems: 'center'
+                                                        alignItems: 'center',
+                                                        position: 'relative'
                                                     }}>
                                                         <Box
                                                             sx={{
-                                                                height: 4,
-                                                                bgcolor: isSelected ? '#1976d2' : '#e0e0e0',
-                                                                borderRadius: 2,
+                                                                height: 6,
+                                                                bgcolor: isSelected 
+                                                                    ? 'rgba(255,255,255,0.4)' 
+                                                                    : 'linear-gradient(90deg, #667eea, #764ba2)',
+                                                                borderRadius: 3,
                                                                 flex: 1,
                                                                 position: 'relative',
+                                                                boxShadow: isSelected 
+                                                                    ? '0 2px 8px rgba(255,255,255,0.3)'
+                                                                    : '0 2px 8px rgba(103, 126, 234, 0.3)',
                                                                 '&::before': {
                                                                     content: '""',
                                                                     position: 'absolute',
-                                                                    left: 0,
+                                                                    left: -4,
                                                                     top: '50%',
                                                                     transform: 'translateY(-50%)',
-                                                                    width: 8,
-                                                                    height: 8,
-                                                                    bgcolor: isSelected ? '#1976d2' : '#bdbdbd',
+                                                                    width: 12,
+                                                                    height: 12,
+                                                                    bgcolor: isSelected ? '#ffffff' : '#667eea',
                                                                     borderRadius: '50%',
-                                                                    border: '2px solid white',
-                                                                    boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                                                                    border: `3px solid ${isSelected ? 'rgba(255,255,255,0.8)' : '#ffffff'}`,
+                                                                    boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+                                                                    zIndex: 1
                                                                 },
                                                                 '&::after': {
                                                                     content: '""',
                                                                     position: 'absolute',
-                                                                    right: 0,
+                                                                    right: -4,
                                                                     top: '50%',
                                                                     transform: 'translateY(-50%)',
-                                                                    width: 8,
-                                                                    height: 8,
-                                                                    bgcolor: isSelected ? '#1976d2' : '#bdbdbd',
+                                                                    width: 12,
+                                                                    height: 12,
+                                                                    bgcolor: isSelected ? '#ffffff' : '#764ba2',
                                                                     borderRadius: '50%',
-                                                                    border: '2px solid white',
-                                                                    boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                                                                    border: `3px solid ${isSelected ? 'rgba(255,255,255,0.8)' : '#ffffff'}`,
+                                                                    boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+                                                                    zIndex: 1
                                                                 }
                                                             }}
                                                         />
                                                     </Box>
-
-                                                    {/* End Time */}
-                                                    <Box sx={{ 
-                                                        minWidth: 80,
-                                                        textAlign: 'right'
-                                                    }}>
-                                                        <Typography
-                                                            variant="h6"
-                                                            sx={{
-                                                                fontWeight: 500,
-                                                                color: isSelected ? '#1976d2' : '#1a1a1a',
-                                                                fontSize: '1rem'
-                                                            }}
-                                                        >
-                                                            {slot.end}
-                                                        </Typography>
-                                                    </Box>
                                                 </Box>
 
-                                                {/* Status/Price */}
+                                                {/* Enhanced Status/Price Display */}
                                                 <Box sx={{ 
-                                                    ml: 2,
+                                                    ml: 3,
                                                     display: 'flex',
                                                     flexDirection: 'column',
-                                                    alignItems: 'flex-end',
-                                                    minWidth: 100
+                                                    alignItems: 'center',
+                                                    minWidth: 120,
+                                                    p: 2,
+                                                    borderRadius: 2,
+                                                    background: isSelected 
+                                                        ? 'rgba(255,255,255,0.2)' 
+                                                        : 'rgba(255,255,255,0.8)',
+                                                    backdropFilter: 'blur(10px)',
+                                                    border: `1px solid ${isSelected ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.1)'}`
                                                 }}>
                                                     {!isAvailable ? (
-                                                        <Typography
-                                                            variant="caption"
-                                                            sx={{
-                                                                color: '#f44336',
-                                                                fontWeight: 500,
-                                                                bgcolor: 'rgba(244, 67, 54, 0.1)',
-                                                                px: 1,
-                                                                py: 0.5,
-                                                                borderRadius: 1
-                                                            }}
-                                                        >
-                                                            Unavailable
-                                                        </Typography>
+                                                        <>
+                                                            <Box sx={{
+                                                                width: 32,
+                                                                height: 32,
+                                                                borderRadius: '50%',
+                                                                bgcolor: '#f44336',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                mb: 1,
+                                                                boxShadow: '0 4px 12px rgba(244, 67, 54, 0.3)'
+                                                            }}>
+                                                                <Typography sx={{ color: 'white', fontSize: '16px', fontWeight: 'bold' }}>✕</Typography>
+                                                            </Box>
+                                                            <Typography
+                                                                variant="caption"
+                                                                sx={{
+                                                                    color: '#d32f2f',
+                                                                    fontWeight: 700,
+                                                                    fontSize: '0.8rem',
+                                                                    textAlign: 'center',
+                                                                    textTransform: 'uppercase',
+                                                                    letterSpacing: '0.5px'
+                                                                }}
+                                                            >
+                                                                Unavailable
+                                                            </Typography>
+                                                        </>
                                                     ) : isSelected ? (
-                                                        <Typography
-                                                            variant="caption"
-                                                            sx={{
-                                                                color: '#1976d2',
-                                                                fontWeight: 500,
-                                                                bgcolor: 'rgba(25, 118, 210, 0.1)',
-                                                                px: 1,
-                                                                py: 0.5,
-                                                                borderRadius: 1
-                                                            }}
-                                                        >
-                                                            Selected
-                                                        </Typography>
-                                                    ) : selectedTimeSlots.length >= getMaxAllowedSlots() ? (
-                                                        <Typography
-                                                            variant="caption"
-                                                            sx={{
-                                                                color: '#ff9800',
-                                                                fontWeight: 500,
-                                                                bgcolor: 'rgba(255, 152, 0, 0.1)',
-                                                                px: 1,
-                                                                py: 0.5,
-                                                                borderRadius: 1
-                                                            }}
-                                                        >
-                                                            Max reached
-                                                        </Typography>
+                                                        <>
+                                                                                                                         <Box sx={{
+                                                                 width: 32,
+                                                                 height: 32,
+                                                                 borderRadius: '50%',
+                                                                 bgcolor: '#ffffff',
+                                                                 display: 'flex',
+                                                                 alignItems: 'center',
+                                                                 justifyContent: 'center',
+                                                                 mb: 1,
+                                                                 boxShadow: '0 4px 12px rgba(255,255,255, 0.4)',
+                                                                 animation: 'pulse 2s infinite',
+                                                                 '@keyframes pulse': {
+                                                                     '0%': { transform: 'scale(1)', boxShadow: '0 4px 12px rgba(255,255,255, 0.4)' },
+                                                                     '50%': { transform: 'scale(1.05)', boxShadow: '0 6px 16px rgba(255,255,255, 0.6)' },
+                                                                     '100%': { transform: 'scale(1)', boxShadow: '0 4px 12px rgba(255,255,255, 0.4)' }
+                                                                 }
+                                                             }}>
+                                                                <Typography sx={{ color: '#667eea', fontSize: '16px', fontWeight: 'bold' }}>✓</Typography>
+                                                            </Box>
+                                                            <Typography
+                                                                variant="caption"
+                                                                sx={{
+                                                                    color: '#ffffff',
+                                                                    fontWeight: 700,
+                                                                    fontSize: '0.8rem',
+                                                                    textAlign: 'center',
+                                                                    textTransform: 'uppercase',
+                                                                    letterSpacing: '0.5px',
+                                                                    textShadow: '0 2px 4px rgba(0,0,0,0.3)'
+                                                                }}
+                                                            >
+                                                                Selected
+                                                            </Typography>
+                                                            <Typography
+                                                                variant="h6"
+                                                                sx={{
+                                                                    color: '#ffffff',
+                                                                    fontWeight: 'bold',
+                                                                    mt: 0.5,
+                                                                    textShadow: '0 2px 4px rgba(0,0,0,0.3)'
+                                                                }}
+                                                            >
+                                                                ₹{price}
+                                                            </Typography>
+                                                        </>
                                                     ) : (
-                                                        <Typography
-                                                            variant="body2"
-                                                            sx={{
-                                                                color: '#4caf50',
-                                                                fontWeight: 500
-                                                            }}
-                                                        >
-                                                            ₹{calculateDurationAndPrice(slot.start, slot.end).total}
-                                                        </Typography>
+                                                        <>
+                                                            <Box sx={{
+                                                                width: 32,
+                                                                height: 32,
+                                                                borderRadius: '50%',
+                                                                background: 'linear-gradient(135deg, #4caf50, #66bb6a)',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                mb: 1,
+                                                                boxShadow: '0 4px 12px rgba(76, 175, 80, 0.3)',
+                                                                transition: 'transform 0.2s ease',
+                                                                '&:hover': {
+                                                                    transform: 'scale(1.1)'
+                                                                }
+                                                            }}>
+                                                                <Typography sx={{ color: 'white', fontSize: '16px', fontWeight: 'bold' }}>+</Typography>
+                                                            </Box>
+                                                            <Typography
+                                                                variant="caption"
+                                                                sx={{
+                                                                    color: '#2e7d32',
+                                                                    fontWeight: 700,
+                                                                    fontSize: '0.8rem',
+                                                                    textAlign: 'center',
+                                                                    textTransform: 'uppercase',
+                                                                    letterSpacing: '0.5px'
+                                                                }}
+                                                            >
+                                                                Available
+                                                            </Typography>
+                                                            <Typography
+                                                                variant="h6"
+                                                                sx={{
+                                                                    color: '#1b5e20',
+                                                                    fontWeight: 'bold',
+                                                                    mt: 0.5
+                                                                }}
+                                                            >
+                                                                ₹{price}
+                                                            </Typography>
+                                                        </>
                                                     )}
                                                 </Box>
                                             </Box>
@@ -1345,52 +1516,138 @@ const handleHourlyMemberType = (memberType) => {
                                 
                                 {selectedTimeSlots.length > 0 && (
                                     <Box sx={{ 
-                                        mt: 3, 
-                                        p: 3, 
-                                        bgcolor: 'rgba(25, 118, 210, 0.05)', 
-                                        borderRadius: 2, 
-                                        border: '1px solid rgba(25, 118, 210, 0.2)'
+                                        mt: 4, 
+                                        p: 4, 
+                                        background: 'linear-gradient(135deg, rgba(103, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%)', 
+                                        borderRadius: 4, 
+                                        border: '2px solid rgba(103, 126, 234, 0.3)',
+                                        boxShadow: '0 8px 32px rgba(103, 126, 234, 0.15)',
+                                        position: 'relative',
+                                        overflow: 'hidden',
+                                        '&::before': {
+                                            content: '""',
+                                            position: 'absolute',
+                                            top: 0,
+                                            left: 0,
+                                            right: 0,
+                                            height: '4px',
+                                            background: 'linear-gradient(90deg, #667eea, #764ba2)',
+                                        }
                                     }}>
-                                        <Typography variant="h6" gutterBottom sx={{ color: '#1976d2' }}>
-                                            Selected Time Slots ({selectedTimeSlots.length}/{getMaxAllowedSlots()})
-                                        </Typography>
-                                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+                                            <Box sx={{
+                                                width: 40,
+                                                height: 40,
+                                                borderRadius: '50%',
+                                                background: 'linear-gradient(135deg, #667eea, #764ba2)',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                mr: 2,
+                                                boxShadow: '0 4px 15px rgba(103, 126, 234, 0.4)'
+                                            }}>
+                                                <Typography sx={{ color: 'white', fontSize: '18px', fontWeight: 'bold' }}>✓</Typography>
+                                            </Box>
+                                                                                        <Typography variant="h5" sx={{ 
+                                                 color: '#1a237e', 
+                                                 fontWeight: 700,
+                                                 letterSpacing: '0.5px'
+                                             }}>
+                                                 Selected Time Slots ({selectedTimeSlots.length})
+                                             </Typography>
+                                        </Box>
+                                        
+                                        <Box sx={{ 
+                                            display: 'grid',
+                                            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                                            gap: 2, 
+                                            mb: 3 
+                                        }}>
                                             {selectedTimeSlots.map((slot, index) => (
                                                 <Box
                                                     key={index}
                                                     sx={{
-                                                        bgcolor: '#1976d2',
+                                                        background: 'linear-gradient(135deg, #667eea, #764ba2)',
                                                         color: 'white',
-                                                        px: 2,
-                                                        py: 1,
+                                                        px: 3,
+                                                        py: 2,
                                                         borderRadius: 3,
-                                                        fontSize: '0.875rem',
-                                                        fontWeight: 500
+                                                        textAlign: 'center',
+                                                        boxShadow: '0 4px 15px rgba(103, 126, 234, 0.3)',
+                                                        transform: 'translateY(0)',
+                                                        transition: 'transform 0.2s ease',
+                                                        '&:hover': {
+                                                            transform: 'translateY(-2px)',
+                                                            boxShadow: '0 6px 20px rgba(103, 126, 234, 0.4)'
+                                                        }
                                                     }}
                                                 >
-                                                    {slot.start} - {slot.end}
+                                                    <Typography variant="h6" sx={{ 
+                                                        fontWeight: 700,
+                                                        textShadow: '0 2px 4px rgba(0,0,0,0.3)'
+                                                    }}>
+                                                        {slot.start} - {slot.end}
+                                                    </Typography>
+                                                    <Typography variant="caption" sx={{ 
+                                                        opacity: 0.9,
+                                                        textTransform: 'uppercase',
+                                                        letterSpacing: '0.5px'
+                                                    }}>
+                                                        {slot.duration}
+                                                    </Typography>
                                                 </Box>
                                             ))}
                                         </Box>
+                                        
                                         <Box sx={{ 
                                             display: 'flex', 
                                             justifyContent: 'space-between',
                                             alignItems: 'center',
-                                            pt: 2,
-                                            borderTop: '1px solid rgba(25, 118, 210, 0.2)'
+                                            pt: 3,
+                                            borderTop: '2px solid rgba(103, 126, 234, 0.2)',
+                                            background: 'rgba(255, 255, 255, 0.5)',
+                                            mx: -4,
+                                            px: 4,
+                                            pb: 0,
+                                            borderRadius: '0 0 16px 16px'
                                         }}>
-                                            <Typography variant="h6" sx={{ color: '#1976d2' }}>
-                                                Total Price:
-                                            </Typography>
-                                            <Typography variant="h5" sx={{ color: '#1976d2', fontWeight: 'bold' }}>
-                                                ₹{Math.ceil(calculatedPrice.total)}/-
-                                            </Typography>
+                                            <Box>
+                                                <Typography variant="h6" sx={{ 
+                                                    color: '#1a237e', 
+                                                    fontWeight: 600,
+                                                    mb: 0.5
+                                                }}>
+                                                    Total Duration: {calculatedPrice.duration} hours
+                                                </Typography>
+                                                <Typography variant="h5" sx={{ 
+                                                    color: '#1a237e', 
+                                                    fontWeight: 700
+                                                }}>
+                                                    Total Price:
+                                                </Typography>
+                                            </Box>
+                                            <Box sx={{ textAlign: 'right' }}>
+                                                <Typography variant="h3" sx={{ 
+                                                    background: 'linear-gradient(135deg, #667eea, #764ba2)',
+                                                    backgroundClip: 'text',
+                                                    WebkitBackgroundClip: 'text',
+                                                    WebkitTextFillColor: 'transparent',
+                                                    fontWeight: 900,
+                                                    letterSpacing: '-1px'
+                                                }}>
+                                                    ₹{Math.ceil(calculatedPrice.total)}
+                                                </Typography>
+                                                <Typography variant="body2" sx={{ 
+                                                    color: '#5c6bc0',
+                                                    fontWeight: 600,
+                                                    mt: -0.5
+                                                }}>
+                                                    Including GST
+                                                </Typography>
+                                            </Box>
                                         </Box>
-                                        {selectedTimeSlots.length >= getMaxAllowedSlots() && (
-                                            <Typography variant="body2" sx={{ mt: 2, color: '#ff9800', fontWeight: 500 }}>
-                                                ⚠ You've reached the maximum number of slots allowed for {memberType === 'member' ? 'members' : 'non-members'}.
-                                            </Typography>
-                                        )}
+                                        
+                                        
                                     </Box>
                                 )}
                             </>
