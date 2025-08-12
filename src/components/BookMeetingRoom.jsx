@@ -886,14 +886,14 @@ const handleHourlyMemberType = (memberType) => {
                                 }
                             }}>
                                 <CardContent sx={{ textAlign: 'center' }}>
-                                    <Box sx={{ mb: 2 }}>
+                                    <Box sx={{ mb: 1 }}>
                                         <img 
                                             src={logo} 
                                             alt="Logo" 
                                             style={{ 
-                                                width: '220px', 
-                                                height: 'auto',
-                                                marginBottom: '1.5rem',
+                                                width: '180px', 
+                                                height: '120px',
+                                                objectFit: 'contain',
                                                 filter: 'brightness(1.1)'
                                             }} 
                                         />
