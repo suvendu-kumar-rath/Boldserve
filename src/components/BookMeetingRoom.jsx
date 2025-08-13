@@ -382,10 +382,25 @@ const BookMeetingRoom = () => {
 
     // Update handleFinalBooking to include multiple bookings
     const handleFinalBooking = () => {
-        if (selectedDate && selectedTimeSlots.length > 0 && selectedRoom) {
+        // For whole day booking, we can select any available room
+        if (bookingType === 'whole_day' && !selectedRoom) {
+            // Find the first available room with the selected seating capacity
+            const availableRooms = rooms.filter(room => room.seating === selectedSeating);
+            if (availableRooms.length > 0) {
+                setSelectedRoom(availableRooms[0].id);
+            } else {
+                alert("No rooms available with the selected seating capacity.");
+                return;
+            }
+        }
+        
+        if (selectedDate && ((bookingType === 'whole_day') || (selectedTimeSlots.length > 0))) {
+            // Set default room if not selected
+            const roomToBook = selectedRoom || (rooms.find(room => room.seating === selectedSeating)?.id || rooms[0].id);
+            
             // Add all selected bookings
             selectedTimeSlots.forEach(slot => {
-                addNewBooking(selectedDate, slot.start, selectedRoom);
+                addNewBooking(selectedDate, slot.start, roomToBook);
             });
 
             const formattedDate = format(selectedDate, "MMM dd, yyyy");
@@ -407,9 +422,11 @@ const BookMeetingRoom = () => {
             }
             
             const message = encodeURIComponent(
-                `Hi, I am ${userName}. I want to book the meeting room ${selectedRoom} as a ${memberType} on ${formattedDate} for the following time slots: ${timeSlotText}. Price: ${priceText}`
+                `Hi, I am ${userName}. I want to book the meeting room ${roomToBook} as a ${memberType} on ${formattedDate} for the following time slots: ${timeSlotText}. Price: ${priceText}`
             );
             window.location.href = `https://wa.me/+917684836139?text=${message}`;
+        } else {
+            alert("Please select a date and time slot to continue.");
         }
     };
 
@@ -476,6 +493,17 @@ const BookMeetingRoom = () => {
                     duration: 'Whole Day',
                     display: '09:00AM - 06:00PM'
                 }]);
+            } else {
+                // For hourly booking, reset time slots and regenerate based on current settings
+                setSelectedTimeSlots([]);
+                setCalculatedPrice({ subtotal: 0, gst: 0, total: 0, duration: 0 });
+                
+                // Regenerate available time slots based on current member type and duration
+                if (memberType === 'member') {
+                    setAvailableTimeSlots(generateTimeSlots(selectedDuration, 'member'));
+                } else if (memberType === 'non_member') {
+                    setAvailableTimeSlots(generateTimeSlots('1hour', 'non_member'));
+                }
             }
             
             // Initialize date window with the selected date
@@ -1645,6 +1673,12 @@ const handleHourlyMemberType = (memberType) => {
                             <Button
                                 variant="outlined"
                                 onClick={() => {
+                                    // Reset selected time slots, calculated price, and room when going back
+                                    setSelectedTimeSlots([]);
+                                    setCalculatedPrice({ subtotal: 0, gst: 0, total: 0, duration: 0 });
+                                    setSelectedRoom(null);
+                                    
+                                    // Close current modal and open previous one
                                     setShowRoomSelectionModal(false);
                                     setShowTimeSlotModal(true);
                                 }}
@@ -1654,7 +1688,7 @@ const handleHourlyMemberType = (memberType) => {
                             <Button
                                 variant="contained"
                                 onClick={handleFinalBooking}
-                                disabled={!selectedDate || (bookingType === 'member' && !selectedTime)}
+                                disabled={!selectedDate || (bookingType !== 'whole_day' && selectedTimeSlots.length === 0)}
                                 sx={{
                                     background: 'linear-gradient(135deg, #7B68EE 0%, #6A5ACD 100%)',
                                     '&:hover': {
